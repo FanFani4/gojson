@@ -1,8 +1,18 @@
 
-Welcome to GoJSON.
+GoJSON is a very simple json parser for Go, its approach is similar to https://github.com/DaveGamble/cJSON .
+It does not use encoding/json reflect or interface{}. its 2 times faster on Marshal then encoding/json
+and 6 times on Unmarshal.
 
-GoJSON is a very simple json parser, its approach is similar to https://github.com/DaveGamble/cJSON .
+here is the structure:
 
+    type GoJSON struct {
+        Type     JSONType
+        Bytes    []byte
+        Map      map[string]*GoJSON
+        Array    []*GoJSON
+        Children *GoJSON
+    }
+    
 Some JSON:
     
     {
@@ -67,18 +77,6 @@ update one json with another:
 back to []byte:
 
     b := json.Unmarshal()
-
-Here's the structure:
-
-    type GoJSON struct {
-        Type     JSONType
-        Bytes    []byte
-        Map      map[string]*GoJSON
-        Array    []*GoJSON
-        Children *GoJSON
-    }
-    
-
 
 medium size json benchmark:
 

@@ -7,30 +7,61 @@ import (
 
 var js *GoJSON
 
-var data []byte = []byte(`{
-        "name": "Calarasanu Andrei",
-        "format": {
-            "type":       "rect",
-            "width":      1920,
-            "height":     1080,
-            "interlace":  false,
-            "frame rate": 24
-        }
-    }`)
+var data = []byte(`{
+	"name": "Calarasanu Andrei",
+	"format": {
+		"type":       "rect",
+		"width":      1920,
+		"height":     1080,
+		"interlace":  false,
+		"frame rate": 24
+	}
+}`)
+
+var data2 = []byte(`{
+	"company": {
+		"name": "Simpals"
+	}
+}`)
 
 func TestMarshal(t *testing.T) {
 	js = Marshal(data)
-	js.Get("person").Get("name").SetString("fullName", "test")
-	js.SetString("key", "value")
-	fmt.Println(js.Get("key").ValueString())
-	js.SetBytes("testJson", []byte(`{"hello": "world"}`), JSONObject)
-	js.SetBytes("test_arr", []byte(`[12, 11, 10]`), JSONArray)
-	fmt.Println(js.Get("person").Get("name").Get("fullName").ValueString())
-	fmt.Println(js.Get("testJson").Get("hello").ValueString())
-	js.Delete("testJson")
-	fmt.Println(js.Get("testJson").ValueString("dft value"))
 
 	fmt.Println(string(js.Unmarshal()))
+}
+
+func TestGoJSON_SetBytes(t *testing.T) {
+	err := js.SetBytes("testJson", []byte(`{"hello": "world"}`), JSONObject)
+	err = js.SetBytes("test_arr", []byte(`[12, 11, 10]`), JSONArray)
+	if err != "" {
+		panic(err)
+	}
+
+}
+
+func TestGoJSON_Update(t *testing.T) {
+	js2 := Marshal(data2)
+	err := js.Update(js2)
+	if err != "" {
+		panic(err)
+	}
+	val, er := js.Get("company").Get("name").ValueString()
+	if er != nil {
+		panic(er)
+	}
+	if val != "Simpals" {
+		panic("Wrong")
+	}
+}
+
+func TestGoJSON_Delete(t *testing.T) {
+	err := js.Delete("test_arr")
+	if err != ""{
+		panic(err)
+	}
+	if js.Get("test_arr").Type != JSONInvalid {
+		panic("not deleted")
+	}
 }
 
 func BenchmarkMarshal(b *testing.B) {
