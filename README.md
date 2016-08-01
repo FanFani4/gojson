@@ -2,22 +2,20 @@
 Welcome to GoJSON.
 
 GoJSON is a very simple json parser, its approach is similar to https://github.com/DaveGamble/cJSON .
-it was created to work in more dynamical way with json. its not finished yet and not tested.
 
 Some JSON:
-
-{
-
-    "name": "Jack (\"Bee\") Nimble", 
-    "format": {
-        "type":       "rect", 
-        "width":      1920, 
-        "height":     1080, 
-        "interlace":  false, 
-        "frame rate": 24
-    }
     
-}
+    {
+        {
+        "name": "Calarasanu Andrei", 
+        "format": {
+            "type":       "rect", 
+            "width":      1920, 
+            "height":     1080, 
+            "interlace":  false, 
+            "frame rate": 24
+        }
+    }
 
 Get it parsed:
 
@@ -69,3 +67,20 @@ update one json with another:
 back to []byte:
 
     b := json.Unmarshal()
+
+Here's the structure:
+
+    type GoJSON struct {
+        Type     JSONType
+        Bytes    []byte
+        Map      map[string]*GoJSON
+        Array    []*GoJSON
+        Children *GoJSON
+    }
+    
+
+
+medium size json benchmark:
+
+    Marshal                 50000             29142 ns/op           13842 B/op        201 allocs/op
+    Unmarshal              100000             12199 ns/op            4979 B/op          5 allocs/op
