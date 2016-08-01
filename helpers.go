@@ -6,64 +6,6 @@ import (
 	"errors"
 )
 
-// region jSON Setters
-
-// SetInt is helper to add a int node, key can be string for objects
-// and int for arrays , if you want just to append a node to an array,
-// key can be -1
-func (j *JSON) SetInt (key interface{}, value int) string {
-	if j.Type == JSONArray || j.Type == JSONObject {
-		if j.Children == nil {
-			j.Children = &GoJSON{}
-		}
-		j.Children.SetInt(key, value)
-	}
-	return "cannot set to non object / array"
-}
-
-// SetString is a helper method , it sets a string node
-func (j *JSON) SetString (key interface{}, value string) string {
-	if j.Type == JSONArray || j.Type == JSONObject {
-		if j.Children == nil {
-			j.Children = &GoJSON{}
-		}
-		j.Children.SetString(key, value)
-	}
-	return "cannot set to non object / array"
-}
-
-// SetFloat is a helper method, it sets a float node
-func (j *JSON) SetFloat (key interface{}, value float64) string {
-	if j.Type == JSONArray || j.Type == JSONObject {
-		if j.Children == nil {
-			j.Children = &GoJSON{}
-		}
-		j.Children.SetFloat(key, value)
-	}
-	return "cannot set to non object / array"
-}
-
-// SetBool is a helper method, it sets a bool node
-func (j *JSON) SetBool (key interface{}, value bool) string {
-	if j.Type == JSONArray || j.Type == JSONObject {
-		if j.Children == nil {
-			j.Children = &GoJSON{}
-		}
-		j.Children.SetBool(key, value)
-	}
-	return "cannot set to non object / array"
-}
-
-// SetNull is a helper method, it sets a null node
-func (j *JSON) SetNull (key interface{}) string {
-	if j.Type == JSONArray || j.Type == JSONObject {
-		if j.Children == nil {
-			j.Children = &GoJSON{}
-		}
-		j.Children.SetNull(key)
-	}
-	return "cannot set to non object / array"
-}
 
 /*
 SetBytes is a universal method to add a node
@@ -71,7 +13,22 @@ js.SetBytes("test_obj", []byte(`{"test": "best"}`), JSONObject)
 js.SetBytes("test_arr", []byte(`[12, 11, 10]`), JSONObject)
 js.SetBytes("yes", []byte("true"), JSONBool)
  */
-func (j *JSON) SetBytes (value []byte, Type JSONType) string {
+func (g *GoJSON) SetBytes (key interface{}, value []byte, Type JSONType) string {
+	if Type != JSONInvalid {
+		if node := g.Get(key); node.Type != JSONInvalid {
+			return node.setBytes(value, Type)
+		}
+		node := &GoJSON{}
+		err := node.setBytes(value, Type)
+		if err != "" {
+			return err
+		}
+		return g.Set(key, node)
+	}
+	return "trying to assign invalid node"
+}
+
+func (g *GoJSON) setBytes (value []byte, Type JSONType) string {
 	var err error
 	switch Type {
 	case JSONInt:
@@ -95,26 +52,25 @@ func (j *JSON) SetBytes (value []byte, Type JSONType) string {
 		if child == nil {
 			return "array or object expected"
 		}
-		j.Type = Type
-		j.Children = child
+		g.Type = Type
+		g.Children = child
 		return ""
 	}
-	j.Type = Type
-	j.Bytes = value
+	g.Type = Type
+	g.Bytes = value
 	return ""
 }
-// endregion
 
 // region jSON Getters
 
 // Value returns bytes and type of the current node
-func (j *JSON) Value () ([]byte, JSONType) {
+func (j *GoJSON) Value () ([]byte, JSONType) {
     return j.Bytes, j.Type
 }
 
 // ValueInt returns int representation of the node if its Type is JSONInt or JSONFloat
 // if node is empty and dft was specified if will be returned otherwise 0 and error
-func (j *JSON) ValueInt (dft ...int) (result int, err error) {
+func (j *GoJSON) ValueInt (dft ...int) (result int, err error) {
     if j.Type != JSONInt && j.Type != JSONFloat {
         err = errors.New("Type missmatch")
     } else {
@@ -130,8 +86,7 @@ func (j *JSON) ValueInt (dft ...int) (result int, err error) {
 
 // ValueFloat returns float representation of the node if its Type is JSONFloat or JSONInt
 // if node is empty and dft was specified if will be returned otherwise 0 and error
-func (j *JSON) ValueFloat (dft ...float64) (result float64, err error) {
-	fmt.Println(j.Type)
+func (j *GoJSON) ValueFloat (dft ...float64) (result float64, err error) {
     if j.Type != JSONFloat && j.Type != JSONInt {
         err = errors.New("Type missmatch")
     } else {
@@ -147,7 +102,7 @@ func (j *JSON) ValueFloat (dft ...float64) (result float64, err error) {
 
 // ValueString returns string representation of the node if its Type is JSONString
 // if node is empty and dft was specified if will be returned otherwise "" and error
-func (j *JSON) ValueString (dft ...string) (result string, err error) {
+func (j *GoJSON) ValueString (dft ...string) (result string, err error) {
 	if j.Type != JSONString {
 		err = errors.New("Type missmatch")
 	}
@@ -162,7 +117,7 @@ func (j *JSON) ValueString (dft ...string) (result string, err error) {
 
 // ValueBool returns string representation of the node if its Type is JSONBool
 // if node is empty and dft was specified if will be returned otherwise false and error
-func (j *JSON) ValueBool (dft ...bool) (result bool, err error) {
+func (j *GoJSON) ValueBool (dft ...bool) (result bool, err error) {
     if j.Type != JSONBool {
 		err = errors.New("Type missmatch")
     } else {
@@ -179,53 +134,38 @@ func (j *JSON) ValueBool (dft ...bool) (result bool, err error) {
 
 // region goJSON Setters
 
-// SetBytes creates new JSON struct and sets it
-func (g *GoJSON) SetBytes (key interface{}, value []byte, Type JSONType) string {
-	if Type != JSONInvalid {
-		if node := g.Get(key); node != nil {
-			return node.SetBytes(value, Type)
-		}
-		node := &JSON{}
-		err := node.SetBytes(value, Type)
-		if err != "" {
-			return err
-		}
-		return g.Set(key, node)
-	}
-	return "trying to assign invalid node"
-}
 
 // SetInt is a helper for setting a int node
 func (g *GoJSON) SetInt (key interface{}, value int) string {
-	node := &JSON{Type: JSONInt, Bytes: []byte(strconv.Itoa(value))}
+	node := &GoJSON{Type: JSONInt, Bytes: []byte(strconv.Itoa(value))}
 	err := g.Set(key, node)
 	return err
 }
 
 // SetString is a helper for setting string
 func (g *GoJSON) SetString (key interface{}, value string) string {
-    node := &JSON{Type: JSONString, Bytes: []byte(value)}
+    node := &GoJSON{Type: JSONString, Bytes: []byte(value)}
 	err := g.Set(key, node)
 	return err
 }
 
 // SetFloat is a helper for setting float
 func (g *GoJSON) SetFloat (key interface{}, value float64) string {
-	node := &JSON{Type: JSONFloat, Bytes: []byte(strconv.FormatFloat(value, 'f', -1, 64))}
+	node := &GoJSON{Type: JSONFloat, Bytes: []byte(strconv.FormatFloat(value, 'f', -1, 64))}
     err := g.Set(key, node)
 	return err
 }
 
 // SetBool is a helper for setting bool
 func (g *GoJSON) SetBool (key interface{}, value bool) string {
-	node := &JSON{Type: JSONBool, Bytes: []byte(strconv.FormatBool(value))}
+	node := &GoJSON{Type: JSONBool, Bytes: []byte(strconv.FormatBool(value))}
     err := g.Set(key, node)
     return err
 }
 
 // SetNull sets a json null
 func (g *GoJSON) SetNull (key interface{}) string {
-	node := &JSON{Type: JSONNull, Bytes: []byte("null")}
+	node := &GoJSON{Type: JSONNull, Bytes: []byte("null")}
     err := g.Set(key, node)
     return err
 }

@@ -1,4 +1,5 @@
 package gojson
+
 /*
 package GoJSON provides methods for Marshaling/Unmarshaling and editing JSON
 */
@@ -8,13 +9,13 @@ type JSONType int
 
 const (
 	JSONInvalid JSONType = iota
-    JSONBool
-    JSONNull
-    JSONInt
-    JSONFloat
-    JSONString
-    JSONArray
-    JSONObject
+	JSONBool
+	JSONNull
+	JSONInt
+	JSONFloat
+	JSONString
+	JSONArray
+	JSONObject
 )
 
 /*
@@ -22,51 +23,61 @@ GoJSON is base json type
 expected types are JSONObject and JSONArray
 */
 type GoJSON struct {
-	Map   map[string]*JSON
-	Array []*JSON
-	Type  JSONType
+	Type     JSONType
+	Bytes    []byte
+	Map      map[string]*GoJSON
+	Array    []*GoJSON
+	Children *GoJSON
 }
 
 // NewArray returns new array
-func NewArray () *GoJSON {
+func NewArray() *GoJSON {
 	return &GoJSON{Type: JSONArray}
 }
 
 // NewObject returns new object
-func NewObject () *GoJSON {
+func NewObject() *GoJSON {
 	return &GoJSON{Type: JSONObject}
 }
 
 // Get a node by string key or int index if object is an array
-func (g *GoJSON) Get(key interface{}) *JSON {
-	switch g.Type {
+func (g *GoJSON) Get(key interface{}) *GoJSON {
+	node := g
+	if node.Children != nil {
+		node = node.Children
+	}
+	switch node.Type {
 	case JSONObject:
-		if val, ok := g.Map[key.(string)]; ok {
+		if val, ok := node.Map[key.(string)]; ok {
 			return val
 		}
 	case JSONArray:
 		if index, ok := key.(int); ok {
-			if index > len(g.Array) {
-				return &JSON{}
+			if index > len(node.Array) {
+				return &GoJSON{}
 			}
-			return g.Array[index]
+			return node.Array[index]
 		}
 	}
-	return &JSON{}
+	return &GoJSON{}
 }
 
 // Delete a key from map or item from array by index
 func (g *GoJSON) Delete(key interface{}) string {
-	switch g.Type {
+	node := g
+	if node.Children != nil {
+		node = node.Children
+	}
+	switch node.Type {
 	case JSONObject:
 		if strKey, ok := key.(string); ok {
-			delete(g.Map, strKey)
+			delete(node.Map, strKey)
 		} else {
 			return "You can delete from object just by string key"
 		}
 	case JSONArray:
 		if index, ok := key.(int); ok {
-			g.Array = append(g.Array[:index], g.Array[index+1:]...)
+			node.Array = append(node.Array[:index], node.Array[index+1:]...)
 		} else {
 			return "You can delete from array just by index"
 		}
@@ -77,17 +88,25 @@ func (g *GoJSON) Delete(key interface{}) string {
 }
 
 // Pop - same as get but removes node from json
-func (g *GoJSON) Pop(key interface{}) *JSON {
-	value := g.Get(key)
+func (g *GoJSON) Pop(key interface{}) *GoJSON {
+	node := g
+	if node.Children != nil {
+		node = node.Children
+	}
+	value := node.Get(key)
 	if value.Type != JSONInvalid {
-		g.Delete(key)
+		node.Delete(key)
 	}
 	return value
 }
 
 // Update merges two objects - available only for objects
 func (g *GoJSON) Update(json *GoJSON) string {
-	if g.Type != JSONObject {
+	node := g
+	if node.Children != nil {
+		node = node.Children
+	}
+	if node.Type != JSONObject {
 		return "json is not an object"
 	}
 
@@ -97,7 +116,7 @@ func (g *GoJSON) Update(json *GoJSON) string {
 	}
 
 	for key, value := range json.Map {
-		err := g.Set(key, value)
+		err := node.Set(key, value)
 		if err != "" {
 			return err
 		}
@@ -107,13 +126,17 @@ func (g *GoJSON) Update(json *GoJSON) string {
 
 // Keys returns keys of json object
 func (g *GoJSON) Keys() []string {
-	if g.Type != JSONObject || g.Map == nil || len(g.Map) == 0 {
+	node := g
+	if node.Children != nil {
+		node = node.Children
+	}
+	if node.Type != JSONObject || node.Map == nil || len(node.Map) == 0 {
 		return []string{}
 	}
-	response := make([]string, len(g.Map))
+	response := make([]string, len(node.Map))
 
 	i := 0
-	for key := range g.Map {
+	for key := range node.Map {
 		response[i] = key
 		i++
 	}
@@ -121,114 +144,59 @@ func (g *GoJSON) Keys() []string {
 }
 
 // Values returns values of object or array
-func (g *GoJSON) Values() (response []*JSON) {
-	if g.Type == JSONObject {
-		if g.Map == nil || len(g.Map) == 0 {return}
-		response = make([]*JSON, len(g.Map))
+func (g *GoJSON) Values() (response []*GoJSON) {
+	node := g
+	if node.Children != nil {
+		node = node.Children
+	}
+	if node.Type == JSONObject {
+		if node.Map == nil || len(node.Map) == 0 {
+			return
+		}
+		response = make([]*GoJSON, len(node.Map))
 		i := 0
-		for _, value := range g.Map {
+		for _, value := range node.Map {
 			response[i] = value
 			i++
 		}
 	}
-	if g.Type == JSONArray {
-		return g.Array
+	if node.Type == JSONArray {
+		return node.Array
 	}
 	return
 }
 
-
 // Set sets a pointer to JSON struct by key
-func (g *GoJSON) Set (key interface{}, value *JSON) string {
+func (g *GoJSON) Set(key interface{}, value *GoJSON) string {
 	if g.Type == JSONInvalid {
 		return "Invalid node"
 	}
-	switch g.Type {
+	node := g
+	if node.Children != nil {
+		node = node.Children
+	}
+	switch node.Type {
 	case JSONObject:
-		if g.Map == nil {
-			g.Map = make(map[string]*JSON)
+		if node.Map == nil {
+			node.Map = make(map[string]*GoJSON)
 		}
-		g.Map[key.(string)] = value
+		node.Map[key.(string)] = value
 	case JSONArray:
-        var index int
-        var ok bool
+		var index int
+		var ok bool
 		if index, ok = key.(int); !ok {
-            index = -1
-        }
-		if index == -1 || index > len(g.Array) {
+			index = -1
+		}
+		if index == -1 || index > len(node.Array) {
 			//	append
-			g.Array = append(g.Array, value)
+			node.Array = append(node.Array, value)
 		} else {
 			//	insert
-			g.Array = append(g.Array, &JSON{})
-			copy(g.Array[index + 1:], g.Array[index:])
-			g.Array[index] = value
+			node.Array = append(node.Array, &GoJSON{})
+			copy(node.Array[index+1:], node.Array[index:])
+			node.Array[index] = value
 		}
 	}
 
 	return ""
-}
-
-// JSON represents a single node
-type JSON struct {
-    Type     JSONType
-    Bytes    []byte
-    Children *GoJSON
-}
-
-// Set just calls Children.Set if node is JSONArray or JSONObject
-func (j *JSON) Set (key interface{}, value *JSON) string {
-	if j.Type == JSONArray || j.Type == JSONObject {
-		if j.Children == nil {
-			j.Children = &GoJSON{}
-		}
-		j.Children.Set(key, value)
-	}
-	return "cannot set to non object / array"
-}
-
-// Get just calls Children.Get if node is JSONArray or JSONObject
-func (j *JSON) Get(key interface{}) *JSON {
-    if j.Type != JSONArray && j.Type != JSONObject {
-        return &JSON{}
-    }
-    return j.Children.Get(key)
-}
-
-// Pop just calls Children.Pop if node is JSONArray or JSONObject
-func (j *JSON) Pop(key interface{}) *JSON {
-    if j.Type != JSONArray && j.Type != JSONObject {
-        return &JSON{}
-    }
-    return j.Children.Pop(key)
-}
-
-// Update just calls Children.Update if node is JSONObject
-func (j *JSON) Update(json *GoJSON) string {
-    if j.Type != JSONObject {
-		return "not an object"
-	}
-	if j.Children == nil {
-		j.Children = &GoJSON{}
-	}
-	return j.Children.Update(json)
-}
-
-// Keys just calls Children.Keys if node is JSONObject
-func (j *JSON) Keys() []string {
-	if j.Type != JSONObject {
-		return []string{}
-	}
-	if j.Children == nil {
-		j.Children = &GoJSON{}
-	}
-	return j.Children.Keys()
-}
-
-// Values just calls Children.Values if node is JSONObject
-func (j *JSON) Values() []*JSON {
-	if j.Children == nil {
-		j.Children = &GoJSON{}
-	}
-	return j.Children.Values()
 }
