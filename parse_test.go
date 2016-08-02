@@ -64,6 +64,7 @@ func TestGoJSON_Delete(t *testing.T) {
 	}
 }
 
+
 func BenchmarkMarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Marshal(data)
