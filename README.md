@@ -10,7 +10,6 @@ here is the structure:
         Bytes    []byte
         Map      map[string]*GoJSON
         Array    []*GoJSON
-        Children *GoJSON
     }
     
 Some JSON:

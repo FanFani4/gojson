@@ -15,7 +15,7 @@ const (
 func Marshal(value []byte) *GoJSON {
 	json := &GoJSON{}
 	var node *GoJSON
-	ParseValue(json, node, skip(value))
+	parseValue(json, node, skip(value))
 	return json
 }
 
@@ -49,7 +49,7 @@ func parseKey(json *GoJSON, node *GoJSON, value []byte) []byte {
 	return value[i+1:]
 }
 
-func ParseValue(json *GoJSON, node *GoJSON, value []byte) []byte {
+func parseValue(json *GoJSON, node *GoJSON, value []byte) []byte {
 	if len(value) == 0 {
 		return []byte{}
 	}
@@ -143,10 +143,10 @@ func parseArray(json *GoJSON, node *GoJSON, value []byte) []byte {
 		if node != nil {
 			node.Type = JSONArray
 		}
-		if node.Children == nil {
-			node.Children = NewArray()
+		if node == nil {
+			node = NewArray()
 		}
-		parent = node.Children
+		parent = node
 	} else {
 		parent = json
 	}
@@ -158,7 +158,7 @@ func parseArray(json *GoJSON, node *GoJSON, value []byte) []byte {
 	}
 
 	newNode := &GoJSON{}
-	value = skip(ParseValue(parent, newNode, skip(value)))
+	value = skip(parseValue(parent, newNode, skip(value)))
 	if len(value) == 0 {
 		return []byte{}
 	}
@@ -170,7 +170,7 @@ func parseArray(json *GoJSON, node *GoJSON, value []byte) []byte {
 
 	for value[0] == 44 { // ,
 		newNode = &GoJSON{}
-		value = skip(ParseValue(parent, newNode, skip(value[1:])))
+		value = skip(parseValue(parent, newNode, skip(value[1:])))
 		if len(value) == 0 {
 			return []byte{}
 		}
@@ -192,10 +192,10 @@ func parseObject(json *GoJSON, node *GoJSON, value []byte) []byte {
 		if node != nil {
 			node.Type = JSONObject
 		}
-		if node.Children == nil {
-			node.Children = NewObject()
+		if node == nil {
+			node = NewObject()
 		}
-		parent = node.Children
+		parent = node
 	} else {
 		parent = json
 	}
@@ -211,7 +211,7 @@ func parseObject(json *GoJSON, node *GoJSON, value []byte) []byte {
 	if len(value) == 0 || value[0] != 58 {
 		return []byte{}
 	} // :
-	value = skip(ParseValue(parent, newNode, skip(value[1:])))
+	value = skip(parseValue(parent, newNode, skip(value[1:])))
 	if len(value) == 0 {
 		return []byte{}
 	}
@@ -222,7 +222,7 @@ func parseObject(json *GoJSON, node *GoJSON, value []byte) []byte {
 		if len(value) == 0 || value[0] != 58 {
 			return []byte{}
 		} // :
-		value = skip(ParseValue(parent, newNode, skip(value[1:])))
+		value = skip(parseValue(parent, newNode, skip(value[1:])))
 		if len(value) == 0 {
 			return []byte{}
 		}
@@ -278,7 +278,7 @@ func writeValue(value *GoJSON, bf *bytes.Buffer) {
 		bf.Write(value.Bytes)
 		bf.WriteByte(startString)
 	case JSONArray, JSONObject:
-		value.Children.Unmarshal(bf)
+		value.Unmarshal(bf)
 	default:
 		bf.Write(value.Bytes)
 	}

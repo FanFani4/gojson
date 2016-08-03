@@ -126,7 +126,8 @@ func (g *GoJSON) setBytes(value []byte, Type JSONType) string {
 			return "array or object expected"
 		}
 		g.Type = Type
-		g.Children = child
+		g.Array = child.Array
+		g.Map = child.Map
 		return ""
 	}
 	g.Type = Type
