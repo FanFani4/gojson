@@ -9,6 +9,15 @@ import (
 	"time"
 )
 
+func (g *GoJSON) String() string {
+	if g.Type == JSONObject || g.Type == JSONArray {
+		return string(g.Unmarshal())
+	} else {
+		val, _ := g.ValueString()
+		return val
+	}
+}
+
 // region Getters
 
 // Value returns bytes and type of the current node
@@ -56,6 +65,7 @@ func (j *GoJSON) ValueString(dft ...string) (result string, err error) {
 	}
 	if len(j.Bytes) > 0 {
 		result = string(j.Bytes)
+		return result, nil
 	}
 	if len(dft) > 0 {
 		return dft[0], nil
