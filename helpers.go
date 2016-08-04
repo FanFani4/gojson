@@ -4,6 +4,9 @@ import (
 	"strconv"
 	"errors"
 	"fmt"
+	"gopkg.in/mgo.v2/bson"
+	"math"
+	"time"
 )
 
 // region Getters
@@ -117,7 +120,6 @@ func (g *GoJSON) setBytes(value []byte, Type JSONType) string {
 	case JSONBool:
 		_, err = strconv.ParseBool(string(value))
 		if err != nil {
-			fmt.Println(err)
 			return "invalid float"
 		}
 	case JSONArray, JSONObject:
@@ -170,4 +172,243 @@ func (g *GoJSON) SetNull(key interface{}) string {
 	return err
 }
 
+// endregion
+
+// region bson
+func (g *GoJSON) GetBSON() (interface{}, error) {
+	return g.ToMap(), nil
+}
+
+func (g *GoJSON) parseObject (d *decoder, obj *GoJSON) {
+	if g.Type == JSONInvalid {
+		g.Type = JSONObject
+	}
+	end := int(d.readInt32())
+	end += d.i - 4
+	if end <= d.i || end > len(d.in) || d.in[end-1] != '\x00' {
+		panic("bson corupted")
+	}
+	for d.in[d.i] != '\x00' {
+		kind := d.readByte()
+		name := d.readCStr()
+		if d.i >= len(d.in) {
+			return
+		}
+		obj := &GoJSON{}
+		g.setBSON(d, kind, obj)
+		if g.Type == JSONObject {
+			g.Set(name, obj)
+		}
+	}
+	d.i += 1
+}
+
+func (g *GoJSON) parseSlice(d *decoder, obj *GoJSON) {
+	if g.Type == JSONInvalid {
+		g.Type = JSONArray
+		if g.Array == nil {
+			g.Array = make([]*GoJSON, 0)
+		}
+	}
+
+	end := int(d.readInt32())
+	end += d.i - 4
+	if end <= d.i || end > len(d.in) || d.in[end-1] != '\x00' {
+		panic("bson corupted")
+	}
+	for d.in[d.i] != '\x00' {
+		kind := d.readByte()
+		for d.i < end && d.in[d.i] != '\x00' {
+			d.i++
+		}
+		if d.i >= end {
+			panic("corupted")
+		}
+		d.i++
+		obj := &GoJSON{}
+		g.setBSON(d, kind, obj)
+		if g.Type == JSONArray {
+			g.Array = append(g.Array, obj)
+		}
+		if d.i >= end {
+			panic("corupted")
+		}
+	}
+	d.i++ // '\x00'
+	if d.i != end {
+		panic("corupted")
+	}
+}
+
+
+func (g *GoJSON) setBSON(d *decoder, kind byte, obj *GoJSON) {
+	switch kind {
+	case 0x01: // Float64
+		in := d.readFloat64()
+		obj.Type = JSONFloat
+		obj.Bytes = []byte(strconv.FormatFloat(in, 'f', -1, 64))
+	case 0x02: // UTF-8 string
+		obj.Type = JSONString
+		obj.Bytes = d.readStr()
+	case 0x03: // Document
+		newObj := NewObject()
+		obj.Type = JSONObject
+		obj.Map = make(map[string]*GoJSON)
+		obj.parseObject(d, newObj)
+	case 0x04: // Array
+		newArr := NewArray()
+		obj.Type = JSONArray
+		obj.Array = make([]*GoJSON, 0)
+		obj.parseSlice(d, newArr)
+	case 0x05: // Binary
+		b := d.readBinary()
+		obj.Type = JSONString
+		obj.Bytes = b.Data
+	case 0x07: // ObjectId
+		obj.Type = JSONString
+		obj.Bytes = d.readBytes(12)
+	case 0x08: // Bool
+		obj.Type = JSONBool
+		obj.Bytes = d.readBool()
+	case 0x09: // Timestamp
+		// MongoDB handles timestamps as milliseconds.
+		obj.Type = JSONFloat
+		i := d.readInt64()
+		if i == -62135596800000 {
+			obj.Bytes = []byte{0} // In UTC for convenience.
+		} else {
+			obj.Bytes = []byte(time.Unix(i / 1e3, i % 1e3 * 1e6).String())
+		}
+	case 0x0A: // Nil
+		obj.Type = JSONNull
+		obj.Bytes = []byte("null")
+	case 0x0D, 0x0E: // JavaScript without scope
+		obj.Type = JSONString
+		obj.Bytes = d.readStr()
+	case 0x10: // Int32
+		obj.Type = JSONInt
+		obj.Bytes = []byte(strconv.Itoa(int(d.readInt32())))
+	case 0x11: // Mongo-specific timestamp
+		obj.Type = JSONInt
+		obj.Bytes = []byte(strconv.Itoa(int(d.readInt64())))
+	case 0x12: // Int64
+		obj.Type = JSONInt
+		obj.Bytes = []byte(strconv.Itoa(int(d.readInt64())))
+	default:
+		panic(fmt.Sprintf("Unknown element kind (0x%02X)", kind))
+	}
+	return
+}
+
+func (g *GoJSON) SetBSON(raw bson.Raw) error {
+	d := decoder{in: raw.Data}
+	g.parseObject(&d, g)
+	return nil
+}
+
+func (d *decoder) readRegEx() bson.RegEx {
+	re := bson.RegEx{}
+	re.Pattern = d.readCStr()
+	re.Options = d.readCStr()
+	return re
+}
+
+func (d *decoder) readBinary() bson.Binary {
+	l := d.readInt32()
+	b := bson.Binary{}
+	b.Kind = d.readByte()
+	b.Data = d.readBytes(l)
+	if b.Kind == 0x02 && len(b.Data) >= 4 {
+		// Weird obsolete format with redundant length.
+		b.Data = b.Data[4:]
+	}
+	return b
+}
+
+func (d *decoder) readStr() []byte {
+	l := d.readInt32()
+	b := d.readBytes(l - 1)
+	if d.readByte() != '\x00' {
+		panic("bad")
+	}
+	return b
+}
+
+type decoder struct {
+	in      []byte
+	i       int
+}
+
+
+func (d *decoder) readCStr() string {
+	start := d.i
+	end := start
+	l := len(d.in)
+	for ; end != l; end++ {
+		if d.in[end] == '\x00' {
+			break
+		}
+	}
+	d.i = end + 1
+	if d.i > l {
+		return "bad"
+	}
+	return string(d.in[start:end])
+}
+
+func (d *decoder) readBool() []byte {
+	b := d.readByte()
+	if b == 0 {
+		return []byte("false")
+	}
+	if b == 1 {
+		return []byte("true")
+	}
+	panic(fmt.Sprintf("encoded boolean must be 1 or 0, found %d", b))
+}
+
+func (d *decoder) readFloat64() float64 {
+	return math.Float64frombits(uint64(d.readInt64()))
+}
+
+func (d *decoder) readInt32() int32 {
+	b := d.readBytes(4)
+	return int32((uint32(b[0]) << 0) |
+		(uint32(b[1]) << 8) |
+		(uint32(b[2]) << 16) |
+		(uint32(b[3]) << 24))
+}
+
+func (d *decoder) readInt64() int64 {
+	b := d.readBytes(8)
+	return int64((uint64(b[0]) << 0) |
+		(uint64(b[1]) << 8) |
+		(uint64(b[2]) << 16) |
+		(uint64(b[3]) << 24) |
+		(uint64(b[4]) << 32) |
+		(uint64(b[5]) << 40) |
+		(uint64(b[6]) << 48) |
+		(uint64(b[7]) << 56))
+}
+
+func (d *decoder) readByte() byte {
+	i := d.i
+	d.i++
+	if d.i > len(d.in) {
+		return 0
+	}
+	return d.in[i]
+}
+
+func (d *decoder) readBytes(length int32) []byte {
+	if length < 0 {
+		return []byte("aaaa")
+	}
+	start := d.i
+	d.i += int(length)
+	if d.i < start || d.i > len(d.in) {
+		return []byte("aaaa")
+	}
+	return d.in[start : start+int(length)]
+}
 // endregion

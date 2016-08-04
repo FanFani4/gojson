@@ -1,6 +1,5 @@
 package gojson
 
-
 /*
 package GoJSON provides methods for Marshaling/Unmarshaling and editing JSON
 */
@@ -66,9 +65,6 @@ func toMap(value *GoJSON) interface{} {
 	return r
 }
 
-func (g *GoJSON) GetBSON() (interface{}, error) {
-	return g.ToMap(), nil
-}
 
 // NewArray returns new array
 func NewArray() *GoJSON {
