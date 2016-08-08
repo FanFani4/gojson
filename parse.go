@@ -1,6 +1,10 @@
 package gojson
 
-import "bytes"
+import (
+	"bytes"
+	"reflect"
+	"unsafe"
+)
 
 const (
 	startArray  byte = 91
@@ -11,11 +15,20 @@ const (
 	escape      byte = 92
 )
 
+
 // Loads parses input bytes and returns new json
 func Marshal(value []byte) *GoJSON {
 	json := &GoJSON{}
 	var node *GoJSON
 	parseValue(json, node, skip(value))
+	return json
+}
+
+func LMarshal(value []byte) *GoJSON {
+	json := &GoJSON{}
+	var node *GoJSON
+	l := &lexer{Data:value}
+	l.parseValue(json, node)
 	return json
 }
 
@@ -45,7 +58,7 @@ func parseKey(json *GoJSON, node *GoJSON, value []byte) []byte {
 	if json.Map == nil {
 		json.Map = make(map[string]*GoJSON)
 	}
-	json.Map[string(value[1:i])] = node
+	json.Map[bytesToStr(value[1:i])] = node
 	return value[i+1:]
 }
 
@@ -55,22 +68,22 @@ func parseValue(json *GoJSON, node *GoJSON, value []byte) []byte {
 	}
 
 	switch value[0] {
-	case 110: // n
-		if len(value) >= 4 && value[3] == 108 {
+	case 'n': // n
+		if len(value) >= 4 && value[1] == 'u' && value[2] == 'l' && value[3] == 'l' {
 			node.Type = JSONNull
 			node.Bytes = value[:4]
 			return value[4:]
 		}
 		return []byte{}
-	case 102: // f
-		if len(value) >= 5 && value[4] == 101 { // e
+	case 'f': // f
+		if len(value) >= 5 && value[1] == 'a' && value[2] == 'l' && value[3] == 's' && value[4] == 'e' { // e
 			node.Type = JSONBool
 			node.Bytes = value[:5]
 			return value[5:]
 		}
 		return []byte{}
-	case 116: // t
-		if len(value) >= 4 && value[3] == 101 { // e
+	case 't': // t
+		if len(value) >= 4 && value[1] == 'r' && value[2] == 'u' && value[3] == 'e' {
 			node.Type = JSONBool
 			node.Bytes = value[:4]
 			return value[4:]
@@ -78,7 +91,7 @@ func parseValue(json *GoJSON, node *GoJSON, value []byte) []byte {
 		return []byte{}
 	case startString: // "
 		return parseString(node, value)
-	case 45, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57: // - , 0-9
+	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-': // - , 0-9
 		return parseNumber(node, value)
 	case startArray:
 		return parseArray(json, node, value)
@@ -282,4 +295,11 @@ func writeValue(value *GoJSON, bf *bytes.Buffer) {
 	default:
 		bf.Write(value.Bytes)
 	}
+}
+
+
+func bytesToStr(data []byte) string {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&data))
+	shdr := reflect.StringHeader{h.Data, h.Len}
+	return *(*string)(unsafe.Pointer(&shdr))
 }
