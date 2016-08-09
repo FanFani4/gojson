@@ -12,26 +12,25 @@ import (
 func (g *GoJSON) String() string {
 	if g.Type == JSONObject || g.Type == JSONArray {
 		return bytesToStr(g.Unmarshal())
-	} else {
-		val, _ := g.ValueString()
-		return val
 	}
+	val, _ := g.ValueString()
+	return val
 }
 
 // region Getters
 
 // Value returns bytes and type of the current node
-func (j *GoJSON) Value() ([]byte, JSONType) {
-	return j.Bytes, j.Type
+func (g *GoJSON) Value() ([]byte, JSONType) {
+	return g.Bytes, g.Type
 }
 
 // ValueInt returns int representation of the node if its Type is JSONInt or JSONFloat
 // if node is empty and dft was specified if will be returned otherwise 0 and error
-func (j *GoJSON) ValueInt(dft ...int) (result int, err error) {
-	if j.Type != JSONInt && j.Type != JSONFloat {
+func (g *GoJSON) ValueInt(dft ...int) (result int, err error) {
+	if g.Type != JSONInt && g.Type != JSONFloat {
 		err = errors.New("Type missmatch")
 	} else {
-		result, err = strconv.Atoi(bytesToStr(j.Bytes))
+		result, err = strconv.Atoi(bytesToStr(g.Bytes))
 	}
 	if err != nil {
 		if len(dft) > 0 {
@@ -43,11 +42,11 @@ func (j *GoJSON) ValueInt(dft ...int) (result int, err error) {
 
 // ValueFloat returns float representation of the node if its Type is JSONFloat or JSONInt
 // if node is empty and dft was specified if will be returned otherwise 0 and error
-func (j *GoJSON) ValueFloat(dft ...float64) (result float64, err error) {
-	if j.Type != JSONFloat && j.Type != JSONInt {
+func (g *GoJSON) ValueFloat(dft ...float64) (result float64, err error) {
+	if g.Type != JSONFloat && g.Type != JSONInt {
 		err = errors.New("Type missmatch")
 	} else {
-		result, err = strconv.ParseFloat(bytesToStr(j.Bytes), 64)
+		result, err = strconv.ParseFloat(bytesToStr(g.Bytes), 64)
 	}
 	if err != nil {
 		if len(dft) > 0 {
@@ -59,12 +58,12 @@ func (j *GoJSON) ValueFloat(dft ...float64) (result float64, err error) {
 
 // ValueString returns string representation of the node if its Type is JSONString
 // if node is empty and dft was specified if will be returned otherwise "" and error
-func (j *GoJSON) ValueString(dft ...string) (result string, err error) {
-	if j.Type != JSONString {
+func (g *GoJSON) ValueString(dft ...string) (result string, err error) {
+	if g.Type != JSONString {
 		err = errors.New("Type missmatch")
 	}
-	if len(j.Bytes) > 0 {
-		result = bytesToStr(j.Bytes)
+	if len(g.Bytes) > 0 {
+		result = bytesToStr(g.Bytes)
 		return result, nil
 	}
 	if len(dft) > 0 {
@@ -75,11 +74,11 @@ func (j *GoJSON) ValueString(dft ...string) (result string, err error) {
 
 // ValueBool returns string representation of the node if its Type is JSONBool
 // if node is empty and dft was specified if will be returned otherwise false and error
-func (j *GoJSON) ValueBool(dft ...bool) (result bool, err error) {
-	if j.Type != JSONBool {
+func (g *GoJSON) ValueBool(dft ...bool) (result bool, err error) {
+	if g.Type != JSONBool {
 		err = errors.New("Type missmatch")
 	} else {
-		result, err = strconv.ParseBool(bytesToStr(j.Bytes))
+		result, err = strconv.ParseBool(bytesToStr(g.Bytes))
 	}
 	if err != nil {
 		if len(dft) > 0 {
@@ -185,6 +184,8 @@ func (g *GoJSON) SetNull(key interface{}) string {
 // endregion
 
 // region bson
+
+// GetBSON helper for mgo
 func (g *GoJSON) GetBSON() (interface{}, error) {
 	return g.ToMap(), nil
 }
@@ -210,7 +211,7 @@ func (g *GoJSON) parseObject (d *decoder, obj *GoJSON) {
 			g.Set(name, obj)
 		}
 	}
-	d.i += 1
+	d.i++
 }
 
 func (g *GoJSON) parseSlice(d *decoder, obj *GoJSON) {
@@ -310,6 +311,7 @@ func (g *GoJSON) setBSON(d *decoder, kind byte, obj *GoJSON) {
 	return
 }
 
+// SetBSON helper for mgo
 func (g *GoJSON) SetBSON(raw bson.Raw) error {
 	d := decoder{in: raw.Data}
 	g.parseObject(&d, g)

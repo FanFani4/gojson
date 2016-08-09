@@ -29,6 +29,7 @@ type GoJSON struct {
 	Array    []*GoJSON
 }
 
+// ToMap transforms json to map[string]interface{}
 func (g *GoJSON) ToMap() interface{} {
 	if g.Type == JSONObject {
 		m := make(map[string]interface{})
@@ -36,14 +37,13 @@ func (g *GoJSON) ToMap() interface{} {
 			m[key] = toMap(value)
 		}
 		return m
-	} else {
-		if g.Type == JSONArray {
-			m := make([]interface{}, 0)
-			for _, value := range g.Array {
-				m = append(m, toMap(value))
-			}
-			return m
+	}
+	if g.Type == JSONArray {
+		var m []interface{}
+		for _, value := range g.Array {
+			m = append(m, toMap(value))
 		}
+		return m
 	}
 	return nil
 }

@@ -16,7 +16,7 @@ const (
 )
 
 
-// Loads parses input bytes and returns new json
+// Marshal parses input bytes and returns new json
 func Marshal(value []byte) *GoJSON {
 	json := &GoJSON{}
 	var node *GoJSON
@@ -35,7 +35,7 @@ func skip(value []byte) []byte {
 
 func parseKey(json *GoJSON, node *GoJSON, value []byte) []byte {
 	if value[0] != startString {
-		return []byte{}
+		syntaxError()
 	}
 	i := 1
 	for i < len(value) {
@@ -57,7 +57,7 @@ func parseKey(json *GoJSON, node *GoJSON, value []byte) []byte {
 
 func parseValue(json *GoJSON, node *GoJSON, value []byte) []byte {
 	if len(value) == 0 {
-		return []byte{}
+		return value
 	}
 
 	switch value[0] {
@@ -67,21 +67,18 @@ func parseValue(json *GoJSON, node *GoJSON, value []byte) []byte {
 			node.Bytes = value[:4]
 			return value[4:]
 		}
-		return []byte{}
 	case 'f': // f
 		if len(value) >= 5 && value[1] == 'a' && value[2] == 'l' && value[3] == 's' && value[4] == 'e' { // e
 			node.Type = JSONBool
 			node.Bytes = value[:5]
 			return value[5:]
 		}
-		return []byte{}
 	case 't': // t
 		if len(value) >= 4 && value[1] == 'r' && value[2] == 'u' && value[3] == 'e' {
 			node.Type = JSONBool
 			node.Bytes = value[:4]
 			return value[4:]
 		}
-		return []byte{}
 	case startString: // "
 		return parseString(node, value)
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-': // - , 0-9
@@ -90,14 +87,13 @@ func parseValue(json *GoJSON, node *GoJSON, value []byte) []byte {
 		return parseArray(json, node, value)
 	case startObject:
 		return parseObject(json, node, value)
-
 	}
-	return []byte{}
+	return value
 }
 
 func parseString(node *GoJSON, value []byte) []byte {
 	if value[0] != startString {
-		return []byte{}
+		syntaxError()
 	}
 	i := 1
 	for i < len(value) {
@@ -148,8 +144,7 @@ func parseArray(json *GoJSON, node *GoJSON, value []byte) []byte {
 		// is child
 		if node != nil {
 			node.Type = JSONArray
-		}
-		if node == nil {
+		} else {
 			node = NewArray()
 		}
 		parent = node
@@ -166,7 +161,7 @@ func parseArray(json *GoJSON, node *GoJSON, value []byte) []byte {
 	newNode := &GoJSON{}
 	value = skip(parseValue(parent, newNode, skip(value)))
 	if len(value) == 0 {
-		return []byte{}
+		return value
 	}
 
 	if parent.Array == nil {
@@ -178,7 +173,7 @@ func parseArray(json *GoJSON, node *GoJSON, value []byte) []byte {
 		newNode = &GoJSON{}
 		value = skip(parseValue(parent, newNode, skip(value[1:])))
 		if len(value) == 0 {
-			return []byte{}
+			return value
 		}
 		parent.Array = append(parent.Array, newNode)
 	}
@@ -186,7 +181,7 @@ func parseArray(json *GoJSON, node *GoJSON, value []byte) []byte {
 	if len(value) > 0 && value[0] == stopArray {
 		return value[1:]
 	}
-	return []byte{}
+	return value
 }
 
 func parseObject(json *GoJSON, node *GoJSON, value []byte) []byte {
@@ -197,8 +192,7 @@ func parseObject(json *GoJSON, node *GoJSON, value []byte) []byte {
 		// is child
 		if node != nil {
 			node.Type = JSONObject
-		}
-		if node == nil {
+		} else {
 			node = NewObject()
 		}
 		parent = node
@@ -214,30 +208,30 @@ func parseObject(json *GoJSON, node *GoJSON, value []byte) []byte {
 
 	newNode := &GoJSON{}
 	value = skip(parseKey(parent, newNode, skip(value)))
-	if len(value) == 0 || value[0] != 58 {
-		return []byte{}
-	} // :
+	if len(value) == 0 || value[0] != ':' {
+		syntaxError()
+	}
 	value = skip(parseValue(parent, newNode, skip(value[1:])))
 	if len(value) == 0 {
-		return []byte{}
+		return value
 	}
 
-	for value[0] == 44 { // ,
+	for value[0] == ',' { // ,
 		newNode = &GoJSON{}
 		value = skip(parseKey(parent, newNode, skip(value[1:])))
-		if len(value) == 0 || value[0] != 58 {
-			return []byte{}
-		} // :
+		if len(value) == 0 || value[0] != ':' {
+			syntaxError()
+		}
 		value = skip(parseValue(parent, newNode, skip(value[1:])))
 		if len(value) == 0 {
-			return []byte{}
+			return value
 		}
 	}
 
 	if len(value) > 0 && value[0] == stopObject {
 		return value[1:]
 	}
-	return []byte{}
+	return value
 }
 
 // Unmarshal transforms goJSON to []byte
@@ -293,6 +287,10 @@ func writeValue(value *GoJSON, bf *bytes.Buffer) {
 
 func bytesToStr(data []byte) string {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&data))
-	shdr := reflect.StringHeader{h.Data, h.Len}
-	return *(*string)(unsafe.Pointer(&shdr))
+	sHdr := reflect.StringHeader{h.Data, h.Len}
+	return *(*string)(unsafe.Pointer(&sHdr))
+}
+
+func syntaxError() {
+	panic("Invalid json")
 }
