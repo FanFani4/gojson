@@ -79,5 +79,5 @@ back to []byte:
 
 medium size json benchmark:
 
-    Marshal                 50000             29142 ns/op           13842 B/op        201 allocs/op
+    Marshal                 50000             25073 ns/op           10738 B/op        111 allocs/op
     Unmarshal              100000             12199 ns/op            4979 B/op          5 allocs/op

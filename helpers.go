@@ -11,7 +11,7 @@ import (
 
 func (g *GoJSON) String() string {
 	if g.Type == JSONObject || g.Type == JSONArray {
-		return string(g.Unmarshal())
+		return bytesToStr(g.Unmarshal())
 	} else {
 		val, _ := g.ValueString()
 		return val
@@ -31,7 +31,7 @@ func (j *GoJSON) ValueInt(dft ...int) (result int, err error) {
 	if j.Type != JSONInt && j.Type != JSONFloat {
 		err = errors.New("Type missmatch")
 	} else {
-		result, err = strconv.Atoi(string(j.Bytes))
+		result, err = strconv.Atoi(bytesToStr(j.Bytes))
 	}
 	if err != nil {
 		if len(dft) > 0 {
@@ -47,7 +47,7 @@ func (j *GoJSON) ValueFloat(dft ...float64) (result float64, err error) {
 	if j.Type != JSONFloat && j.Type != JSONInt {
 		err = errors.New("Type missmatch")
 	} else {
-		result, err = strconv.ParseFloat(string(j.Bytes), 64)
+		result, err = strconv.ParseFloat(bytesToStr(j.Bytes), 64)
 	}
 	if err != nil {
 		if len(dft) > 0 {
@@ -64,7 +64,7 @@ func (j *GoJSON) ValueString(dft ...string) (result string, err error) {
 		err = errors.New("Type missmatch")
 	}
 	if len(j.Bytes) > 0 {
-		result = string(j.Bytes)
+		result = bytesToStr(j.Bytes)
 		return result, nil
 	}
 	if len(dft) > 0 {
@@ -79,7 +79,7 @@ func (j *GoJSON) ValueBool(dft ...bool) (result bool, err error) {
 	if j.Type != JSONBool {
 		err = errors.New("Type missmatch")
 	} else {
-		result, err = strconv.ParseBool(string(j.Bytes))
+		result, err = strconv.ParseBool(bytesToStr(j.Bytes))
 	}
 	if err != nil {
 		if len(dft) > 0 {
@@ -118,17 +118,17 @@ func (g *GoJSON) setBytes(value []byte, Type JSONType) string {
 	var err error
 	switch Type {
 	case JSONInt:
-		_, err = strconv.Atoi(string(value))
+		_, err = strconv.Atoi(bytesToStr(value))
 		if err != nil {
 			return "invalid int"
 		}
 	case JSONFloat:
-		_, err = strconv.ParseFloat(string(value), 64)
+		_, err = strconv.ParseFloat(bytesToStr(value), 64)
 		if err != nil {
 			return "invalid float"
 		}
 	case JSONBool:
-		_, err = strconv.ParseBool(string(value))
+		_, err = strconv.ParseBool(bytesToStr(value))
 		if err != nil {
 			return "invalid float"
 		}
@@ -363,7 +363,7 @@ func (d *decoder) readCStr() string {
 	if d.i > l {
 		return "bad"
 	}
-	return string(d.in[start:end])
+	return bytesToStr(d.in[start:end])
 }
 
 func (d *decoder) readBool() []byte {

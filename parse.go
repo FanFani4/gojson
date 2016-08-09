@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	startArray  byte = 91
-	stopArray   byte = 93
-	startObject byte = 123
-	stopObject  byte = 125
-	startString byte = 34
-	escape      byte = 92
+	startArray  byte = '['
+	stopArray   byte = ']'
+	startObject byte = '{'
+	stopObject  byte = '}'
+	startString byte = '"'
+	escape      byte = '\\'
 )
 
 
@@ -24,13 +24,6 @@ func Marshal(value []byte) *GoJSON {
 	return json
 }
 
-func LMarshal(value []byte) *GoJSON {
-	json := &GoJSON{}
-	var node *GoJSON
-	l := &lexer{Data:value}
-	l.parseValue(json, node)
-	return json
-}
 
 func skip(value []byte) []byte {
 	i := 0
