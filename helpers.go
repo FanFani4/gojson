@@ -11,7 +11,7 @@ import (
 
 func (g *GoJSON) String() string {
 	if g.Type == JSONObject || g.Type == JSONArray {
-		return bytesToStr(g.Unmarshal())
+		return bytesToStr(g.Marshal())
 	}
 	val, _ := g.ValueString()
 	return val
@@ -132,7 +132,7 @@ func (g *GoJSON) setBytes(value []byte, Type JSONType) string {
 			return "invalid float"
 		}
 	case JSONArray, JSONObject:
-		child := Marshal(value)
+		child := Unmarshal(value)
 		if child == nil {
 			return "array or object expected"
 		}
@@ -179,6 +179,23 @@ func (g *GoJSON) SetNull(key interface{}) string {
 	node := &GoJSON{Type: JSONNull, Bytes: []byte("null")}
 	err := g.Set(key, node)
 	return err
+}
+
+// endregion
+
+// region json
+func (g *GoJSON) MarshalJSON() ([]byte, error) {
+	b := g.Marshal()
+	return b, nil
+}
+
+func (g *GoJSON) UnmarshalJSON(data []byte) error {
+	newJSON := Unmarshal(data)
+	g.Map = newJSON.Map
+	g.Array = newJSON.Array
+	g.Type = newJSON.Type
+	g.Bytes = newJSON.Bytes
+	return nil
 }
 
 // endregion

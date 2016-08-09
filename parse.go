@@ -16,8 +16,8 @@ const (
 )
 
 
-// Marshal parses input bytes and returns new json
-func Marshal(value []byte) *GoJSON {
+// Unarshal parses input bytes and returns new json
+func Unmarshal(value []byte) *GoJSON {
 	json := &GoJSON{}
 	var node *GoJSON
 	parseValue(json, node, skip(value))
@@ -234,8 +234,8 @@ func parseObject(json *GoJSON, node *GoJSON, value []byte) []byte {
 	return value
 }
 
-// Unmarshal transforms goJSON to []byte
-func (g *GoJSON) Unmarshal(buf ...*bytes.Buffer) []byte {
+// Marshal transforms goJSON to []byte
+func (g *GoJSON) Marshal(buf ...*bytes.Buffer) []byte {
 	var bf *bytes.Buffer
 	if len(buf) > 0 {
 		bf = buf[0]
@@ -278,7 +278,7 @@ func writeValue(value *GoJSON, bf *bytes.Buffer) {
 		bf.Write(value.Bytes)
 		bf.WriteByte(startString)
 	case JSONArray, JSONObject:
-		value.Unmarshal(bf)
+		value.Marshal(bf)
 	default:
 		bf.Write(value.Bytes)
 	}

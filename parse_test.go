@@ -108,9 +108,9 @@ var data2 = []byte(`{
 }`)
 
 func TestMarshal(t *testing.T) {
-	js = Marshal(data)
+	js = Unmarshal(data)
 
-	fmt.Println(string(js.Unmarshal()))
+	fmt.Println(string(js.Marshal()))
 }
 
 func TestGoJSON_SetBytes(t *testing.T) {
@@ -123,7 +123,7 @@ func TestGoJSON_SetBytes(t *testing.T) {
 }
 
 func TestGoJSON_Update(t *testing.T) {
-	js2 := Marshal(data2)
+	js2 := Unmarshal(data2)
 	err := js.Update(js2)
 	if err != "" {
 		panic(err)
@@ -154,12 +154,12 @@ func TestGoJSON_ToMap(t *testing.T) {
 
 func BenchmarkMarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		Marshal(data)
+		Unmarshal(data)
 	}
 }
 
 func BenchmarkGoJSON_Unmarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		js.Unmarshal()
+		js.Marshal()
 	}
 }
