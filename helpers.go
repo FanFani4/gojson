@@ -100,8 +100,10 @@ js.SetBytes("yes", []byte("true"), JSONBool)
 */
 func (g *GoJSON) SetBytes(key interface{}, value []byte, Type JSONType) string {
 	if Type != JSONInvalid {
-		if node := g.Get(key); node.Type != JSONInvalid {
-			return node.setBytes(value, Type)
+		if intKey, found := key.(int); !found || intKey > -1 {
+			if node := g.Get(key); node.Type != JSONInvalid {
+				return node.setBytes(value, Type)
+			}
 		}
 		node := &GoJSON{}
 		err := node.setBytes(value, Type)
@@ -294,7 +296,7 @@ func (g *GoJSON) setBSON(d *decoder, kind byte, obj *GoJSON) {
 		obj.Bytes = b.Data
 	case 0x07: // ObjectId
 		obj.Type = JSONString
-		obj.Bytes = d.readBytes(12)
+		obj.Bytes = []byte(bson.ObjectId(d.readBytes(12)).Hex())
 	case 0x08: // Bool
 		obj.Type = JSONBool
 		obj.Bytes = d.readBool()
@@ -436,8 +438,15 @@ func (d *decoder) readBytes(length int32) []byte {
 	start := d.i
 	d.i += int(length)
 	if d.i < start || d.i > len(d.in) {
-		return []byte("aaaa")
+		panic("syntax error")
 	}
-	return d.in[start : start+int(length)]
+	in := d.in[start : start+int(length)]
+
+	for i := 0; i < len(in); i++ {
+		if in[i] == startString && in[i - 1] != escape {
+			in = append(append(in[:i], escape), in[i:]...)
+		}
+	}
+	return in
 }
 // endregion
