@@ -119,7 +119,6 @@ func TestGoJSON_SetBytes(t *testing.T) {
 	if err != "" {
 		panic(err)
 	}
-
 }
 
 func TestGoJSON_Update(t *testing.T) {

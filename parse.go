@@ -119,7 +119,7 @@ func parseNumber(node *GoJSON, value []byte) []byte {
 		i++
 	} /* - */
 	for i < len(value) {
-		if value[i] >= 48 && value[i] <= 57 { /* 0 - 9 */
+		if value[i] >= 48 && value[i] <= 57 || value[i] == 'E' { /* 0 - 9 */
 			i++
 			continue
 		} else {
