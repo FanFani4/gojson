@@ -279,13 +279,7 @@ func (g *GoJSON) setBSON(d *decoder, kind byte, obj *GoJSON) {
 		obj.Bytes = []byte(strconv.FormatFloat(in, 'f', -1, 64))
 	case 0x02: // UTF-8 string
 		obj.Type = JSONString
-		b := d.readStr()
-		for i := 0; i < len(b); i++ {
-			if b[i] == startString && (i != 0 && b[i - 1] != escape) {
-				b = append(append(b[:i], escape), b[i:]...)
-			}
-		}
-		obj.Bytes = b
+		obj.Bytes = d.readStr()
 	case 0x03: // Document
 		newObj := NewObject()
 		obj.Type = JSONObject

@@ -275,7 +275,41 @@ func writeValue(value *GoJSON, bf *bytes.Buffer) {
 	switch value.Type {
 	case JSONString:
 		bf.WriteByte(startString)
-		bf.Write(value.Bytes)
+		var p int
+		for i := 0; i < len(value.Bytes); i++ {
+			c := value.Bytes[i]
+			var e byte
+			switch c {
+			case '\t':
+				e = 't'
+			case '\r':
+				e = 'r'
+			case '\n':
+				e = 'n'
+			case '\\':
+				e = '\\'
+			case '"':
+				e = '"'
+			//case '<', '>':
+			//	if !w.EscapeLtGt {
+			//		continue
+			//	}
+			default:
+				if c >= 0x20 {
+					// no escaping is required
+					continue
+				}
+			}
+			if e != 0 {
+				bf.Write(value.Bytes[p:i])
+				bf.WriteByte(escape)
+				bf.WriteByte(e)
+			} else {
+				bf.Write(value.Bytes[p:i])
+			}
+			p = i + 1
+		}
+		bf.Write(value.Bytes[p:])
 		bf.WriteByte(startString)
 	case JSONArray, JSONObject:
 		value.Marshal(bf)
