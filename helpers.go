@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gopkg.in/mgo.v2/bson"
 	"math"
+	"bytes"
 	"time"
 )
 
@@ -30,7 +31,21 @@ func (g *GoJSON) ValueInt(dft ...int) (result int, err error) {
 	if g.Type != JSONInt && g.Type != JSONFloat {
 		err = errors.New("Type missmatch")
 	} else {
-		result, err = strconv.Atoi(bytesToStr(g.Bytes))
+		if g.Type == JSONInt {
+			result, err = strconv.Atoi(bytesToStr(g.Bytes))
+		} else {
+			if di := bytes.Index(g.Bytes, []byte(".")); di > 0 {
+				result, err = strconv.Atoi(bytesToStr(g.Bytes[:di]))
+			} else {
+				if di == 0 {
+					return 0, nil
+				} else {
+					result, err = strconv.Atoi(bytesToStr(g.Bytes))
+				}
+			}
+
+		}
+
 	}
 	if err != nil {
 		if len(dft) > 0 {

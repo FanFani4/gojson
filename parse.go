@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"reflect"
 	"unsafe"
+	"fmt"
+	"strconv"
 )
 
 const (
@@ -115,25 +117,33 @@ func parseString(node *GoJSON, value []byte) []byte {
 func parseNumber(node *GoJSON, value []byte) []byte {
 	i := 0
 	nodeType := JSONInt
+	hasExponent := false
 	if value[i] == 45 {
 		i++
 	} /* - */
+	loop:
 	for i < len(value) {
-		if value[i] >= 48 && value[i] <= 57 || value[i] == 'E' { /* 0 - 9 */
+		switch value[i] {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			i++
-			continue
-		} else {
-			if value[i] == 46 { /* . */
-				nodeType = JSONFloat
-				i++
-				continue
-			} else {
-				break
-			}
+		case 'E':
+			hasExponent = true
+			i++
+		case '.':
+			nodeType = JSONFloat
+			i++
+		default:
+			break loop
 		}
 	}
 	node.Type = nodeType
 	node.Bytes = value[:i]
+	if hasExponent {
+		result, err := strconv.ParseFloat(bytesToStr(node.Bytes), 64)
+		if err == nil {
+			node.Bytes = []byte(fmt.Sprintf("%f", result))
+		}
+	}
 	return value[i:]
 }
 
